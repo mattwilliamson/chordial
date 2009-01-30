@@ -1,0 +1,1 @@
+Open source implementation of the Chord DHT algorithm <http://en.wikipedia.org/wiki/Chord_(DHT)> in the Erlang programming language. It allows decentralized keystores among machines in a scalable manner.
