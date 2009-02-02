@@ -13,7 +13,8 @@
 -define('MAX_KEY', max_hash_value(?HASH_LENGTH)).
 
 %% API
--export([init_successors/1, hash/1, find_successor/2]).
+-export([init_finger/1, init_successors/1, hash/1, find_successor/2,
+        find_predecessor/2]).
 
 %%%===================================================================
 %%% API
@@ -21,21 +22,29 @@
 
 %%--------------------------------------------------------------------
 %% @doc Initialize the tables which store known nodes.
+%% @spec init_finger(key()) -> ok | {error, Reason}
+%% @end
+%%--------------------------------------------------------------------
+init_finger(Key) when is_integer(Key) ->
+	init_finger(Key, [], 0).
+	
+% create blank list of finger records
+init_finger(Key, Successors, BitPos) when BitPos < ?HASH_LENGTH ->
+	CurrentKey = next_finger(Key, BitPos),
+	NextKey = next_finger(Key, BitPos + 1),
+	NewSuccessor = {CurrentKey, {CurrentKey, NextKey}, node()},
+	init_finger(Key, [NewSuccessor|Successors], BitPos + 1);
+	
+init_finger(_Key, Successors, ?HASH_LENGTH) ->
+	lists:reverse(Successors).
+	
+%%--------------------------------------------------------------------
+%% @doc Initialize the tables which store known nodes.
 %% @spec init_successors(key()) -> ok | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init_successors(Key) when is_integer(Key) ->
-	init_successors(Key, [], 0).
-	
-% create blank list of finger records
-init_successors(Key, Successors, Acc) when Acc < ?HASH_LENGTH ->
-	CurrentKey = next_finger(Key, Acc),
-	NextKey = next_finger(Key, Acc + 1),
-	NewSuccessor = {CurrentKey, {CurrentKey, NextKey}, node()},
-	init_successors(Key, [NewSuccessor|Successors], Acc + 1);
-	
-init_successors(_Key, Successors, ?HASH_LENGTH) ->
-	lists:reverse(Successors).
+init_successors(KnownNodes) when is_list(KnownNodes) ->
+	[].
 	
 %%--------------------------------------------------------------------
 %% @doc Hashes node address or content
@@ -60,6 +69,24 @@ find_successor(Key, [{Start, {Start, End}, Node}|T]) ->
             {Key, Node};
         false ->
             find_successor(Key, T)
+    end.
+    
+%%--------------------------------------------------------------------
+%% @doc Finds the predecessor for a given key.
+%% @spec find_predecessor(Key::integer(), finger_list()) -> {key(), node()}
+%% @end
+%%--------------------------------------------------------------------
+find_predecessor(_Key, []) ->
+    {error, key_out_of_bounds};
+
+find_predecessor(Key, [{_Start, {_Start, _End},  Node}, 
+                       N={ Start, { Start,  End}, _Node}
+                       |T]) ->
+    case (Start < Key) and (Key =< End) of
+        true ->
+            {Key, Node};
+        false ->
+            find_predecessor(Key, [N|T])
     end.
 
 
@@ -96,11 +123,5 @@ max_hash_value(_, Total, _) ->
 %% @end
 %%--------------------------------------------------------------------
 next_finger(Key, BitPos) ->
-    Offset = (1 bsl BitPos), % 10#1, 2, 4, 8 (2#1, 10, 100, 1000)...
-	case Key + Offset < ?MAX_KEY of
-		true -> 
-		    Key + Offset;
-		false -> 
-		    Key + Offset - ?MAX_KEY
-	end.
+    Key + ((1 bsl BitPos) rem ?MAX_KEY).
 

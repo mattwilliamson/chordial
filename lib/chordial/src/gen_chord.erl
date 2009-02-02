@@ -25,7 +25,7 @@
 
 -define(SERVER, ?MODULE). 
 
--record(state, {key, predecessor, successors=[]}).
+-record(state, {key, predecessor, finger_table=[], successors=[]}).
 
 %%%===================================================================
 %%% API
@@ -94,9 +94,10 @@ behaviour_info(callbacks) ->
 init(KnownNodes) ->
 	NodeName = atom_to_list(node()),
 	NodeKey = chord_lib:hash(NodeName),
-	Finger = chord_lib:init_successors(NodeKey),
-	Successors = Finger,
-    {ok, #state{key=NodeKey, successors=Successors}}.
+	FingerTable = chord_lib:init_finger(NodeKey),
+	Successors = chord_lib:init_successors(KnownNodes),
+    {ok, #state{key=NodeKey, finger_table=FingerTable, 
+                successors=Successors}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -124,19 +125,12 @@ handle_call(state, _From, State) ->
     
 % Get the current state of the server
 handle_call({finger, all}, _From, State) ->
-	Reply = State#state.successors,
-    {reply, Reply, State};
-    
-%find_successor
-handle_call(successor, _From, State) ->
-    Key = State#state.key,
-    Successors = State#state.successors,
-	Reply = chord_lib:find_successor(Key, Successors),
+	Reply = State#state.finger_table,
     {reply, Reply, State};
     
 %find_successor
 handle_call({successor, Key}, _From, State) ->
-    Successors = State#state.successors,
+    Successors = State#state.finger_table,
 	Reply = chord_lib:find_successor(Key, Successors),
     {reply, Reply, State};
 
