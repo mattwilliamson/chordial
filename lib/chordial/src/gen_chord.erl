@@ -1,5 +1,5 @@
 %%%-------------------------------------------------------------------
-%%% @author Matt Williamson <dawsdesign@gmail.com>
+%%% @author Matt Williamson <mwilliamson@dawsdesign.com>
 %%% @copyright (C) 2009, Matt Williamson
 %%% @doc This module provides a chord server as well as callbacks so
 %%% the client using chord can be notified of events, such as a node
@@ -8,6 +8,8 @@
 %%% @end
 %%%-------------------------------------------------------------------
 -module(gen_chord).
+
+-include("types.hrl").
 
 -behaviour(gen_server).
 
@@ -23,7 +25,7 @@
 
 -define(SERVER, ?MODULE). 
 
--record(state, {key, predecessor, bootstrap_hosts=[]}).
+-record(state, {key, predecessor, successors=[]}).
 
 %%%===================================================================
 %%% API
@@ -53,8 +55,7 @@ start_link(KnownHosts) ->
 %% @doc
 %% Shortcut for gen_server:call(gen_chord, Request)
 %%
-%% @spec start_link(KnownNodes) -> Reply
-%%      where Reply = term()
+%% @spec call(KnownNodes) -> Reply::term()
 %% @end
 %%--------------------------------------------------------------------
 call(Request) ->
@@ -84,17 +85,18 @@ behaviour_info(callbacks) ->
 %% @doc
 %% Initiates the server
 %%
-%% @spec init(Args) -> {ok, State} |
+%% @spec init(KnownNodes::[node()]) -> {ok, State} |
 %%                     {ok, State, Timeout} |
 %%                     ignore |
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init(KnownHosts) ->
+init(KnownNodes) ->
 	NodeName = atom_to_list(node()),
 	NodeKey = chord_lib:hash(NodeName),
-	chord_lib:init_tables(NodeKey),
-    {ok, #state{key=NodeKey, bootstrap_hosts=KnownHosts}}.
+	Finger = chord_lib:init_successors(NodeKey),
+	Successors = Finger,
+    {ok, #state{key=NodeKey, successors=Successors}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -122,12 +124,20 @@ handle_call(state, _From, State) ->
     
 % Get the current state of the server
 handle_call({finger, all}, _From, State) ->
-	Reply = ets:tab2list(finger),
+	Reply = State#state.successors,
     {reply, Reply, State};
     
-% Get the current state of the server
-handle_call({finger, {match, Term}}, _From, State) ->
-	Reply = ets:match(finger, Term),
+%find_successor
+handle_call(successor, _From, State) ->
+    Key = State#state.key,
+    Successors = State#state.successors,
+	Reply = chord_lib:find_successor(Key, Successors),
+    {reply, Reply, State};
+    
+%find_successor
+handle_call({successor, Key}, _From, State) ->
+    Successors = State#state.successors,
+	Reply = chord_lib:find_successor(Key, Successors),
     {reply, Reply, State};
 
 % Unkown Call
