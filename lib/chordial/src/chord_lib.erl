@@ -45,10 +45,8 @@ init_tables(Key, Records, Acc) when Acc < ?HASH_LENGTH ->
 	Offset = (1 bsl Acc), % 1, 2, 4, 8, 16x10 (1, 10, 100, 1000, 10000x2)...
 	CurrentKey = case Key + Offset < ?MAX_KEY of
 		true -> 
-		    io:format("~p + ~p = ~p < ~p = ~p~n", [Key, Offset, (Key+Offset), ?MAX_KEY, true]),
 		    Key + Offset;
 		false -> 
-		    io:format("~p + ~p = ~p < ~p = ~p~n", [Key, Offset, (Key+Offset), ?MAX_KEY, false]),
 		    Key + Offset - ?MAX_KEY
 	end,
 	NewRecord = {CurrentKey, CurrentKey},
