@@ -8,7 +8,7 @@
 -module(chord_lib).
 
 -define('HASH_LENGTH', 160). % sha1
--define('MAX_KEY', math:pow(2, ?HASH_LENGTH)).
+-define('MAX_KEY', max_hash_value(?HASH_LENGTH)).
 
 %% API
 -export([init_tables/1, hash/1]).
@@ -24,7 +24,7 @@
 %% @end
 %%--------------------------------------------------------------------
 init_tables(Key) when is_integer(Key) ->
-	ets:new(finger, []),
+	ets:new(finger, [named_table]),
 	init_tables(Key, [], 0).
 	
 %%--------------------------------------------------------------------
@@ -42,14 +42,32 @@ hash(String) when is_list(String) ->
 
 % create list of finger records
 init_tables(Key, Records, Acc) when Acc < ?HASH_LENGTH ->
-	Offset = Key + (1 bsl Acc), % 1, 2, 4, 8, 16x10 (1, 10, 100, 1000, 10000x2)...
-	CurrentKey = case (Key + Offset) < ?MAX_KEY of
-		true -> Key + Offset;
-		false -> Key + Offset - ?MAX_KEY
+	Offset = (1 bsl Acc), % 1, 2, 4, 8, 16x10 (1, 10, 100, 1000, 10000x2)...
+	CurrentKey = case Key + Offset < ?MAX_KEY of
+		true -> 
+		    io:format("~p + ~p = ~p < ~p = ~p~n", [Key, Offset, (Key+Offset), ?MAX_KEY, true]),
+		    Key + Offset;
+		false -> 
+		    io:format("~p + ~p = ~p < ~p = ~p~n", [Key, Offset, (Key+Offset), ?MAX_KEY, false]),
+		    Key + Offset - ?MAX_KEY
 	end,
-	init_tables(Key, [{CurrentKey, testvalue}|Records], Acc + 1);
+	NewRecord = {CurrentKey, CurrentKey},
+	init_tables(Key, [NewRecord|Records], Acc + 1);
 	
 % insert list of finger records into table
 init_tables(_Key, Records, ?HASH_LENGTH) ->
 	ets:insert(finger, Records).
+	
+max_hash_value(BitCount) ->
+    max_hash_value(BitCount, 0, 0).
+    
+max_hash_value(BitCount, Total, Pos) when Pos < BitCount ->
+    NewTotal = Total + (1 bsl Pos),
+    NewPos = Pos + 1,
+    max_hash_value(BitCount, NewTotal, NewPos);
+    
+max_hash_value(_, Total, _) ->
+    Total.
+    
+    
 

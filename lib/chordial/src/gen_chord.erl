@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, start_link/1]).
+-export([start_link/0, start_link/1, call/1]).
 
 %% Behaviour
 -export([behaviour_info/1]).
@@ -48,6 +48,9 @@ start_link() -> start_link([]).
 %%--------------------------------------------------------------------
 start_link(KnownHosts) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, KnownHosts, []).
+    
+call(Request) ->
+    gen_server:call(?SERVER, Request).
     
 %%%===================================================================
 %%% Behaviour
@@ -111,7 +114,12 @@ handle_call(state, _From, State) ->
     
 % Get the current state of the server
 handle_call({finger, all}, _From, State) ->
-	Reply = ets:all(),
+	Reply = ets:tab2list(finger),
+    {reply, Reply, State};
+    
+% Get the current state of the server
+handle_call({finger, {match, Term}}, _From, State) ->
+	Reply = ets:match(finger, Term),
     {reply, Reply, State};
 
 % Unkown Call
