@@ -23,7 +23,7 @@
 
 -define(SERVER, ?MODULE). 
 
--record(state, {key=nil,bootstrap_hosts=[]}).
+-record(state, {key, predecessor, bootstrap_hosts=[]}).
 
 %%%===================================================================
 %%% API
@@ -49,6 +49,14 @@ start_link() -> start_link([]).
 start_link(KnownHosts) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, KnownHosts, []).
     
+%%--------------------------------------------------------------------
+%% @doc
+%% Shortcut for gen_server:call(gen_chord, Request)
+%%
+%% @spec start_link(KnownNodes) -> Reply
+%%      where Reply = term()
+%% @end
+%%--------------------------------------------------------------------
 call(Request) ->
     gen_server:call(?SERVER, Request).
     
