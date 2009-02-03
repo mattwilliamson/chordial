@@ -6,14 +6,13 @@
 %%% joining or leaving the ring.
 %%%
 %%% @end
-%%% Created :  3 Feb 2009 by Matt Williamson <dawsdesign@gmail.com>
 %%%-------------------------------------------------------------------
 -module(gen_chord).
 
 -behaviour(gen_server).
 
 %% API
--export([start_link/0]).
+-export([start_link/0, start_link/1]).
 
 %% Behaviour
 -export([behaviour_info/1]).
@@ -24,7 +23,7 @@
 
 -define(SERVER, ?MODULE). 
 
--record(state, {}).
+-record(state, {bootstrap_hosts=[]}).
 
 %%%===================================================================
 %%% API
@@ -32,13 +31,23 @@
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Starts the server
+%% Starts the node as a standalone node
 %%
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+start_link() -> start_link([]).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Starts the node and attempts to place itself in the correct
+%% location on the ring according to the known nodes.
+%%
+%% @spec start_link(KnownNodes) -> {ok, Pid} | ignore | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+start_link(KnownHosts) ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, KnownHosts, []).
     
 %%%===================================================================
 %%% Behaviour
@@ -53,7 +62,7 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 behaviour_info(callbacks) ->
-    [{new_predecessor, 1}, {new_successor, 1}, {get, 1}, {put, 2}].
+    [{new_predecessor, 1}, {new_successor, 1}].
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -70,8 +79,9 @@ behaviour_info(callbacks) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([]) ->
-    {ok, #state{}}.
+init(KnownHosts) ->
+	chord_lib:init_tables(),
+    {ok, #state{bootstrap_hosts=KnownHosts}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -87,6 +97,13 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
+
+% Simple ping call
+handle_call(ping, _From, State) ->
+    Reply = pong,
+    {reply, Reply, State};
+
+% Unkown Call
 handle_call(_Request, _From, State) ->
     Reply = {error, unknown_call},
     {reply, Reply, State}.
