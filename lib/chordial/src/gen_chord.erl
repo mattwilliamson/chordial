@@ -15,6 +15,9 @@
 %% API
 -export([start_link/0]).
 
+%% Behaviour
+-export([behaviour_info/1]).
+
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
@@ -36,6 +39,21 @@
 %%--------------------------------------------------------------------
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+    
+%%%===================================================================
+%%% Behaviour
+%%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc Get list of callbacks for the chord behaviour.
+%% @spec behaviour_info(callbacks) -> [{CallbackFun, Arity}]
+%% where
+%% CallbackFun = atom(),
+%% Arity = integer()
+%% @end
+%%--------------------------------------------------------------------
+behaviour_info(callbacks) ->
+    [{new_predecessor, 1}, {new_successor, 1}, {get, 1}, {put, 2}].
 
 %%%===================================================================
 %%% gen_server callbacks
