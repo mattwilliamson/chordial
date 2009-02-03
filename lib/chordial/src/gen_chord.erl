@@ -23,7 +23,7 @@
 
 -define(SERVER, ?MODULE). 
 
--record(state, {bootstrap_hosts=[]}).
+-record(state, {key=nil,bootstrap_hosts=[]}).
 
 %%%===================================================================
 %%% API
@@ -80,8 +80,10 @@ behaviour_info(callbacks) ->
 %% @end
 %%--------------------------------------------------------------------
 init(KnownHosts) ->
-	chord_lib:init_tables(),
-    {ok, #state{bootstrap_hosts=KnownHosts}}.
+	NodeName = atom_to_list(node()),
+	NodeKey = chord_lib:hash(NodeName),
+	chord_lib:init_tables(NodeKey),
+    {ok, #state{key=NodeKey, bootstrap_hosts=KnownHosts}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -101,6 +103,15 @@ init(KnownHosts) ->
 % Simple ping call
 handle_call(ping, _From, State) ->
     Reply = pong,
+    {reply, Reply, State};
+    
+% Get the current state of the server
+handle_call(state, _From, State) ->
+    {reply, State, State};
+    
+% Get the current state of the server
+handle_call({finger, all}, _From, State) ->
+	Reply = ets:all(),
     {reply, Reply, State};
 
 % Unkown Call
