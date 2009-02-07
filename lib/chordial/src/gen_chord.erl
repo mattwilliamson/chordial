@@ -60,7 +60,6 @@ start_link(KnownHosts) ->
 %% @end
 %%--------------------------------------------------------------------
 call(Request) ->
-    net_kernel:connect_node(KownNode),
     gen_server:call(?SERVER, Request).
     
 %%--------------------------------------------------------------------
@@ -71,7 +70,7 @@ call(Request) ->
 %% @end
 %%--------------------------------------------------------------------
 call(Request, Node) ->
-    net_kernel:connect_node(KownNode),
+    net_kernel:connect_node(Node),
     gen_server:call({?SERVER, Node}, Request).
     
 %%%===================================================================
@@ -104,6 +103,9 @@ behaviour_info(callbacks) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
+init(KnownNodes) when is_atom(KnownNodes) ->
+    init([KnownNodes]);
+    
 init(KnownNodes) ->
 	NodeName = atom_to_list(node()),
 	NodeKey = chord_lib:hash(NodeName),
@@ -113,7 +115,7 @@ init(KnownNodes) ->
 	    _ -> [init_successor(KnownNodes, NodeKey)]
 	end,
 	Predecessor = case Successors of
-	    [] -> [];
+	    [] -> nil;
 	    _ -> init_predecessor(hd(Successors))
 	end,
 	case Successors /= [] of
@@ -167,8 +169,12 @@ handle_call(predecessor, _From, State) ->
 % Change this node's predecessor
 handle_call({notify, Node}, _From, State) ->
     NewState = State#state{predecessor=Node},
+    NewState2 = case State#state.successors of
+        [] -> NewState#state{successors=[Node]};
+        _ -> State
+    end,
 	Reply = ok,
-    {reply, Reply, NewState};
+    {reply, Reply, NewState2};
     
 % Get the immediate successor of this node
 handle_call(successor, _From, State) ->
@@ -274,8 +280,10 @@ init_successor([KnownNode|Rest], Key) ->
 %% @end
 %%--------------------------------------------------------------------
 init_predecessor(Successor) ->
-    {ok, Node} = call({predecessor}, Successor),
-    Node.
+    case call(predecessor, Successor) of
+        {ok, nil} -> Successor;
+        {ok, Node} -> Node
+    end.
 
 %%--------------------------------------------------------------------
 %% @private
