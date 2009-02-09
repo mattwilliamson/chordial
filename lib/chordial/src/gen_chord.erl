@@ -186,7 +186,7 @@ handle_call(Request={successor, Key}, _From, State) ->
     Reply = case is_only_node(State) or is_successor(State, Key) of
         true -> {ok, node()};
         false -> 
-            ClosestFinger = finger(State#state.finger_table, Key),
+            ClosestFinger = finger(Key, State#state.finger_table),
             call(Request, ClosestFinger)
     end,
     {reply, Reply, State};
@@ -333,10 +333,10 @@ is_successor(State, Key) ->
 %% @spec finger(FingerTable::finger_list(), Key) -> true | false
 %% @end
 %%--------------------------------------------------------------------
-finger(FingerTable=[], _Key) when is_list(FingerTable) ->
+finger(_Key, FingerTable=[]) when is_list(FingerTable) ->
     {error, key_out_of_bounds};
 
-finger([{Start, {Start, End}, Node}|T], Key) ->
+finger(Key, [{Start, {Start, End}, Node}|T]) ->
     case (Start < Key) and (Key =< End) of
         true ->
             Node;
