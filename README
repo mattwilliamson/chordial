@@ -1,1 +1,39 @@
-Open source implementation of the Chord DHT algorithm <http://en.wikipedia.org/wiki/Chord_(DHT)> in the Erlang programming language. It allows decentralized keystores among machines in a scalable manner.
+Chordial is an open source implementation of MIT's Chord DHT algorithm <http://en.wikipedia.org/wiki/Chord_(DHT)> in the Erlang programming language. Chordial allows key lookups over networks of computers, large or small. This allows developers to use it as a building block for higher level applications such as distributed file storage or task dispatching.
+
+The maximum number of nodes (computers) in a chord ring is 2^m where m is the number of bits in the hashing algorithm used. Chordial uses sha1 which is 160 bits in length. This allows for 2^160 or 1461501637330902918203684832716283019655932542976 nodes. The maximum number of keys is also 2^m.
+
+It looks up keys by hashing each computer's address and arranging them in a ring in order of binary value of the hash. The owner of a key can be found by passing a message around the ring until the Predecessor < Key <= Owner. This is not a fast operation, so it is used as a last resort and a finger table is maintained. The finger table in each computer has m entries of other computers. This is achieved by skipping other machines by a power of two, i.e. 1 machine away, 2 machines away, 4 machines away, 8 machines away, etc. The finger tables allow each hop to cut the distance to the target node in at _least_ half for each hop, that is, each step closer is at least twice as close, since it uses a power of two system.
+
+Chordial watches for unresponsive/dead computers and new computers and rebalances finger tables in an efficient way that requires little rebalancing and allows the application using it to know about it in behaviour callbacks. This allows the application to perform things such as replication as necessary.
+
+
+
+Status:
+This project is not ready for testing yet. It is still under pre-alpha development.
+
+
+
+How to use it:
+While the API is not yet stable, currently chordial is implemented as a behaviour which can be used with the following erlang syntax
+
+%% ##################################################################
+
+-module(gen_chord_test).
+-behaviour(gen_chord).
+
+% Callback for gen_chord behaviour
+new_predecessor(Predecessor={Hostname, Hash}) ->
+    % Code to potentially add or remove replicas of data or other
+    % rebalancing.
+    ok.
+
+% Callback for gen_chord behaviour
+new_successor(Successor={Hostname, Hash}) ->
+    % Code to potentially add or remove replicas of data or other
+    % rebalancing.
+    ok.
+
+% Sample call
+find_owner(Key) ->
+    {ok, Key} = gen_chord:call({successor, Key}),
+    Key.
