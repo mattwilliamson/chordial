@@ -1,9 +1,16 @@
+ERLC=erlc
+ERL=erl
+FILES=src/*.erl
+INCLUDEDIR=./include
+OUTDIR=./ebin
+CFLAGS=-I $(INCLUDEDIR) -o $(OUTDIR)
+SFLAGS=-pa $(OUTDIR)
+
 all:
-	cd lib/chordial && make all
+	$(ERLC) $(CFLAGS) $(FILES)
 
 shell:
-	make all
-	cd lib/chordial && make shell
+	$(ERL) $(SFLAGS)
 
 clean:
-	cd lib/chordial && make clean
+	rm $(OUTDIR)/*.beam
