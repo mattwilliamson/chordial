@@ -22,8 +22,10 @@
 %% @end
 %%--------------------------------------------------------------------
 hash(String) when is_list(String) ->
-	<<HashInteger:?HASH_LENGTH>> = sha1:binstring(String),
-	HashInteger.
+	Hash = sha1:binstring(String),
+	GarbageBits = 160 - ?HASH_LENGTH,
+	<<_:GarbageBits, TruncatedHash/unsigned-integer>> = Hash,
+	TruncatedHash.
 	
 %%--------------------------------------------------------------------
 %% @doc Calculates the maximum hash value

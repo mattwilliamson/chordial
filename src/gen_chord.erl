@@ -71,6 +71,7 @@ call(Request) ->
 %%--------------------------------------------------------------------
 call(Request, Node) ->
     net_kernel:connect_node(Node),
+    io:format("Connected to ~p...~n", [Node]),
     gen_server:call({?SERVER, Node}, Request).
     
 %%%===================================================================
@@ -110,14 +111,17 @@ init(KnownNodes) ->
 	NodeName = atom_to_list(node()),
 	NodeKey = chord_lib:hash(NodeName),
 	FingerTable = init_finger_table(NodeKey),
+	io:format("Getting successors...~n"),
 	Successors = case KnownNodes of
 	    [] -> [];
 	    _ -> [init_successor(KnownNodes, NodeKey)]
 	end,
+	io:format("Getting Predecessors...~n"),
 	Predecessor = case Successors of
 	    [] -> nil;
 	    _ -> init_predecessor(hd(Successors))
 	end,
+	io:format("Notifying successor...~n"),
 	case Successors /= [] of
 	    true -> call({notify, node()}, hd(Successors));
 	    _ -> ok
@@ -158,7 +162,7 @@ handle_call({finger, all}, _From, State) ->
     
 % Get the closest match for a key from the finger table
 handle_call({finger, Key}, _From, State) ->
-	Reply = {ok, finger(State#state.finger_table, Key)},
+	Reply = {ok, finger(Key, State#state.finger_table)},
     {reply, Reply, State};
     
 % Get the immediate predecessor of this node
@@ -324,20 +328,27 @@ is_only_node(State) ->
 is_successor(State, Key) ->
     Predecessor = State#state.predecessor,
     N = State#state.key,
-    (Key > Predecessor) and (Key =< N).
+    PredecessorKey = chord_lib:hash(atom_to_list(Predecessor)),
+    IsSuccessor = ((Key > PredecessorKey) and (Key =< N)) or 
+                  ((Key < PredecessorKey) and (Key >= N)) or 
+                  (Predecessor =:= nil) or (node() =:= Predecessor),
+    io:format("Check if ~p > ~p and ~p =< ~p: ~p~n", [Key, PredecessorKey, Key, N, IsSuccessor]),
+    IsSuccessor.
     
 %%--------------------------------------------------------------------
 %% @private
 %% @doc Find the closest match to the key in the local finger table.
 %%
-%% @spec finger(FingerTable::finger_list(), Key) -> true | false
+%% @spec finger(Key, FingerTable::finger_list()) -> true | false
 %% @end
 %%--------------------------------------------------------------------
-finger(_Key, FingerTable=[]) when is_list(FingerTable) ->
+finger(Key, FingerTable=[]) when is_list(FingerTable) ->
+    io:format("Key: ~p~n", [Key]),
     {error, key_out_of_bounds};
 
 finger(Key, [{Start, {Start, End}, Node}|T]) ->
-    case (Start < Key) and (Key =< End) of
+    io:format("Fingering node: ~p < ~p =< ~p...~n", [Start, Key, End]),
+    case ((Start < Key) and (Key =< End)) or ((Start =< Key) and (Key > End)) of
         true ->
             Node;
         false ->
@@ -354,7 +365,7 @@ finger(Key, [{Start, {Start, End}, Node}|T]) ->
 %% @end
 %%--------------------------------------------------------------------
 next_finger(Key, BitPos) ->
-    Key + ((1 bsl BitPos) rem ?MAX_KEY).
+    (Key + (1 bsl BitPos)) rem ?MAX_KEY.
     
 %%--------------------------------------------------------------------
 %% @private

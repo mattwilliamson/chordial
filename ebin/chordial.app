@@ -1,7 +1,7 @@
 %% This is the application resource file (.app file) for the chordial,
 %% application.
 {application, chordial, 
-  [{description, "Your Desc HERE"},
+  [{description, "Erlang implementation of the Chord distributed hash algorithm"},
    {vsn, "0.1.0"},
    {modules, [chordial_app,
               chordial_sup,
