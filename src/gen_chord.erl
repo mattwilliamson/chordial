@@ -26,7 +26,7 @@
 -define(SERVER, ?MODULE).
 -define('MAX_KEY', chord_lib:max_hash_value()).
 
--record(state, {key, predecessor=nil, finger_table=[], successors=[]}).
+-record(state, {key, predecessor=nil, predecessor_key=nil, finger_table=[], successors=[]}).
 
 %%%===================================================================
 %%% API
@@ -110,26 +110,37 @@ init(KnownNodes) when is_atom(KnownNodes) ->
 init(KnownNodes) ->
 	NodeName = atom_to_list(node()),
 	NodeKey = chord_lib:hash(NodeName),
+	io:format("Starting up node ~p (~p)~n", [NodeName, NodeKey]),
 	FingerTable = init_finger_table(NodeKey),
-	io:format("Getting successors...~n"),
 	Successors = case KnownNodes of
 	    [] -> [];
-	    _ -> [init_successor(KnownNodes, NodeKey)]
+	    _ -> 
+	        io:format("Getting successor...~n"),
+	        [init_successor(KnownNodes, NodeKey)]
 	end,
-	io:format("Getting Predecessors...~n"),
+	io:format("Got successors: ~p~n", [Successors]),
 	Predecessor = case Successors of
 	    [] -> nil;
-	    _ -> init_predecessor(hd(Successors))
+	    _ -> 
+	        io:format("Getting Predecessors...~n"),
+	        init_predecessor(hd(Successors))
 	end,
-	io:format("Notifying successor...~n"),
+	PredecessorKey = case Predecessor of
+	    nil -> nil;
+	    _ -> chord_lib:hash(atom_to_list(Predecessor))
+	end,
+	io:format("Got Predecessors: ~p~n", [Predecessor]),
 	case Successors /= [] of
-	    true -> call({notify, node()}, hd(Successors));
+	    true -> 
+	        io:format("Notifying successor...~n"),
+	        call({notify, node(), NodeKey}, hd(Successors));
 	    _ -> ok
 	end,
     {ok, #state{key=NodeKey, 
                 finger_table=FingerTable,
                 successors=Successors,
-                predecessor=Predecessor}}.
+                predecessor=Predecessor,
+                predecessor_key=PredecessorKey}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -171,27 +182,27 @@ handle_call(predecessor, _From, State) ->
     {reply, Reply, State};
     
 % Change this node's predecessor
-handle_call({notify, Node}, _From, State) ->
-    NewState = State#state{predecessor=Node},
+handle_call({notify, Node, NodeKey}, _From, State) ->
+    io:format("New predecessor: ~p (~p)~n", [Node, NodeKey]),
+    NewState = State#state{predecessor=Node, predecessor_key=NodeKey},
     NewState2 = case State#state.successors of
         [] -> NewState#state{successors=[Node]};
-        _ -> State
+        _ -> NewState
     end,
 	Reply = ok,
     {reply, Reply, NewState2};
     
 % Get the immediate successor of this node
 handle_call(successor, _From, State) ->
-	Reply = {ok, hd(State#state.successors)},
+	Reply = call({successor, State#state.key}, State#state.predecessor),
     {reply, Reply, State};
     
 %find_successor
-handle_call(Request={successor, Key}, _From, State) ->
-    Reply = case is_only_node(State) or is_successor(State, Key) of
-        true -> {ok, node()};
-        false -> 
-            ClosestFinger = finger(Key, State#state.finger_table),
-            call(Request, ClosestFinger)
+handle_call({successor, Key}, _From, State) ->
+    IsInBounds = (Key >= 0) and (Key =< ?MAX_KEY),
+    Reply = case IsInBounds of
+        true -> get_successor(Key, State);
+        false -> {error, out_of_bounds}
     end,
     {reply, Reply, State};
     
@@ -273,7 +284,9 @@ init_successor([], _Key) ->
 
 init_successor([KnownNode|Rest], Key) ->
     case call({successor, Key}, KnownNode) of
-        {ok, Node} -> Node;
+        {ok, Node} -> 
+            io:format("Got successor for ~p: ~p~n", [Key, Node]),
+            Node;
         {error, _Reason} -> init_successor(Rest, Key)
     end.
     
@@ -287,6 +300,17 @@ init_predecessor(Successor) ->
     case call(predecessor, Successor) of
         {ok, nil} -> Successor;
         {ok, Node} -> Node
+    end.
+    
+    
+    
+get_successor(Key, State) ->
+    case (State#state.predecessor =:= nil) or is_successor(State, Key) of
+        true -> {ok, node()};
+        false -> 
+            % TODO: Optimize lookup by looking at finger table
+            Predecessor = State#state.predecessor,
+            call({successor, Key}, Predecessor)
     end.
 
 %%--------------------------------------------------------------------
@@ -327,12 +351,18 @@ is_only_node(State) ->
 %%--------------------------------------------------------------------
 is_successor(State, Key) ->
     Predecessor = State#state.predecessor,
-    N = State#state.key,
-    PredecessorKey = chord_lib:hash(atom_to_list(Predecessor)),
-    IsSuccessor = ((Key > PredecessorKey) and (Key =< N)) or 
-                  ((Key < PredecessorKey) and (Key >= N)) or 
-                  (Predecessor =:= nil) or (node() =:= Predecessor),
-    io:format("Check if ~p > ~p and ~p =< ~p: ~p~n", [Key, PredecessorKey, Key, N, IsSuccessor]),
+    NodeKey = State#state.key,
+    PredecessorKey = State#state.predecessor_key,
+    IsFirstNode = PredecessorKey > NodeKey,
+    HasNoPredecessor = Predecessor =:= nil,
+    KeyIsNodeKey = Key =:= NodeKey,
+    KeyIsInBetween = (Key > PredecessorKey) and (Key =< NodeKey),
+    KeyIsBetweenFirstNode = (((Key > PredecessorKey) and (Key =< ?MAX_KEY)) or ((Key >= 0) and (Key =< NodeKey))) and IsFirstNode,
+    IsSuccessor = HasNoPredecessor or       % Only Node
+                  KeyIsNodeKey or           % Same key as node's key
+                  KeyIsInBetween or         % Key between bredecessor and node's key
+                  KeyIsBetweenFirstNode,    % Node is first (by key value) in the ring
+    io:format("Check if ~p > ~p and ~p =< ~p: OR ~p < ~p -> ~p~n", [Key, PredecessorKey, Key, NodeKey, NodeKey, PredecessorKey, IsSuccessor]),
     IsSuccessor.
     
 %%--------------------------------------------------------------------

@@ -58,10 +58,10 @@ init([]) ->
     Shutdown = 2000,
     Type = worker,
 
-    AChild = {'AName', {'AModule', start_link, []},
-              Restart, Shutdown, Type, ['AModule']},
+    GenChordChild = {gen_chord, {gen_chord, start_link, []},
+              Restart, Shutdown, Type, [gen_chord]},
 
-    {ok, {SupFlags, [AChild]}}.
+    {ok, {SupFlags, [GenChordChild]}}.
 
 %%%===================================================================
 %%% Internal functions

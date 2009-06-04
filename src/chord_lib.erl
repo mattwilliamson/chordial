@@ -10,7 +10,7 @@
 -include("chordial.hrl").
 
 %% API
--export([hash/1, max_hash_value/0]).
+-export([hash/1, max_hash_value/0, max_hash_value/1]).
 
 %%%===================================================================
 %%% API
@@ -24,7 +24,10 @@
 hash(String) when is_list(String) ->
 	Hash = sha1:binstring(String),
 	GarbageBits = 160 - ?HASH_LENGTH,
-	<<_:GarbageBits, TruncatedHash/unsigned-integer>> = Hash,
+	case GarbageBits =:= 0 of
+	    true -> <<TruncatedHash:?HASH_LENGTH>> = Hash;
+	    false -> <<_:GarbageBits, TruncatedHash/unsigned-integer>> = Hash
+	end,
 	TruncatedHash.
 	
 %%--------------------------------------------------------------------
