@@ -51,14 +51,16 @@ init([]) ->
     RestartStrategy = one_for_one,
     MaxRestarts = 1000,
     MaxSecondsBetweenRestarts = 3600,
-
+    KnownNodes = case application:get_env(chordial, nodes) of
+        {ok, Nodes} -> Nodes;
+        undefined -> []
+    end,
     SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts},
-
     Restart = permanent,
     Shutdown = 2000,
     Type = worker,
 
-    GenChordChild = {gen_chord, {gen_chord, start_link, []},
+    GenChordChild = {gen_chord, {gen_chord, start_link, [KnownNodes]},
               Restart, Shutdown, Type, [gen_chord]},
 
     {ok, {SupFlags, [GenChordChild]}}.

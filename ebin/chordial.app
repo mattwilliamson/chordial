@@ -9,8 +9,8 @@
               chord_lib,
               sha1,
               mochihex]},
-   {registered,[chordial_sup]},
+   {registered, [chordial_sup]},
    {applications, [kernel, stdlib]},
-   {mod, {chordial_app,[]}},
+   {mod, {chordial_app, []}},
    {start_phases, []}]}.
 

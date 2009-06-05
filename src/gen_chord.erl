@@ -110,7 +110,7 @@ init(KnownNodes) when is_atom(KnownNodes) ->
 init(KnownNodes) ->
 	NodeName = atom_to_list(node()),
 	NodeKey = chord_lib:hash(NodeName),
-	io:format("Starting up node ~p (~p)~n", [NodeName, NodeKey]),
+	io:format("Starting up node ~p (~p) with known nodes: ~p~n", [NodeName, NodeKey, KnownNodes]),
 	FingerTable = init_finger_table(NodeKey),
 	Successors = case KnownNodes of
 	    [] -> [];
