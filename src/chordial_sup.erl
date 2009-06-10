@@ -48,6 +48,7 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
+    error_logger:info_msg("Starting supervisor...~n"),
     RestartStrategy = one_for_one,
     MaxRestarts = 1000,
     MaxSecondsBetweenRestarts = 3600,
@@ -60,10 +61,12 @@ init([]) ->
     Shutdown = 2000,
     Type = worker,
 
-    GenChordChild = {gen_chord, {gen_chord, start_link, [KnownNodes]},
+    ChordialServer = {gen_chord, {gen_chord, start_link, [KnownNodes]},
               Restart, Shutdown, Type, [gen_chord]},
-
-    {ok, {SupFlags, [GenChordChild]}}.
+    MonitorServer = {chord_monitor, {chord_monitor, start_link, []},
+              Restart, Shutdown, Type, [chord_monitor]},
+    error_logger:info_msg("Started supervisor.~n"),
+    {ok, {SupFlags, [MonitorServer, ChordialServer]}}.
 
 %%%===================================================================
 %%% Internal functions

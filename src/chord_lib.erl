@@ -21,11 +21,14 @@
 %% @spec hash(String) -> {ok, Hash} | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
+hash(Node) when is_atom(Node) ->
+    hash(atom_to_list(Node));
+    
 hash(String) when is_list(String) ->
 	Hash = sha1:binstring(String),
-	GarbageBits = 160 - ?HASH_LENGTH,
+	GarbageBits = 160 - ?hash_len,
 	case GarbageBits =:= 0 of
-	    true -> <<TruncatedHash:?HASH_LENGTH>> = Hash;
+	    true -> <<TruncatedHash:?hash_len>> = Hash;
 	    false -> <<_:GarbageBits, TruncatedHash/unsigned-integer>> = Hash
 	end,
 	TruncatedHash.
@@ -38,7 +41,7 @@ hash(String) when is_list(String) ->
 %% @end
 %%--------------------------------------------------------------------
 max_hash_value() ->
-    max_hash_value(?HASH_LENGTH).
+    max_hash_value(?hash_len).
 
 %%%===================================================================
 %%% Internal functions

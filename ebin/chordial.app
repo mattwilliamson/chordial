@@ -7,9 +7,10 @@
               chordial_sup,
               gen_chord,
               chord_lib,
+			  chord_monitor,
               sha1,
               mochihex]},
-   {registered, [chordial_sup]},
+   {registered, [chordial_sup, chord_monitor]},
    {applications, [kernel, stdlib]},
    {mod, {chordial_app, []}},
    {start_phases, []}]}.
